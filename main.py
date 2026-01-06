@@ -90,7 +90,7 @@ def home():
 def daily_post():
     """Post daily TVL chart to #bot-testing"""
     
-    CHANNEL_ID = os.environ.get('DAILY_CHANNEL_ID', '#bot-testing')
+    CHANNEL_ID = 'C0A6HT4PZMH'
     
     try:
         data = get_bitcoin_l2_tvl()
