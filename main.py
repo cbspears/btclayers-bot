@@ -8,10 +8,10 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
-import psycopg2
-from psycopg2.extras import RealDictCursor
-
+import psycopg
+from psycopg.rows import dict_rowapp = Flask(__name__)
 app = Flask(__name__)
+
 
 # Slack setup
 SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
@@ -22,7 +22,7 @@ DATABASE_URL = os.environ.get('DATABASE_URL')
 
 def get_db_connection():
     """Get database connection"""
-    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+    return psycopg.connect(DATABASE_URL, row_factory=dict_row)
 
 def init_db():
     """Create tables if they don't exist"""
