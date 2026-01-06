@@ -2,5 +2,4 @@ requests==2.31.0
 matplotlib==3.8.2
 flask==3.0.0
 slack_sdk==3.23.0
-gunicorn==21.2.0requests==2.31.0
-matplotlib==3.8.2
+gunicorn==21.2.0
