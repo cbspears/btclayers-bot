@@ -85,6 +85,30 @@ def home():
     return "Bitcoin Layers Bot is running!"
 
 @app.route('/slack/commands', methods=['POST'])
+
+@app.route('/daily-post', methods=['POST', 'GET'])
+def daily_post():
+    """Post daily TVL chart to #bot-testing"""
+    
+    CHANNEL_ID = os.environ.get('DAILY_CHANNEL_ID', '#bot-testing')
+    
+    try:
+        data = get_bitcoin_l2_tvl()
+        chart_file = generate_chart(data)
+        
+        response = slack_client.files_upload_v2(
+            channel=CHANNEL_ID,
+            file=chart_file,
+            title=f"Bitcoin L2 TVL Rankings - {datetime.now().strftime('%Y-%m-%d')}",
+            initial_comment="☀️ Good morning! Here's your daily Bitcoin L2 TVL update:"
+        )
+        
+        return jsonify({'status': 'success'}), 200
+        
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 def slack_commands():
     """Handle /btclayers slash command"""
     
