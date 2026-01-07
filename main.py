@@ -9,7 +9,10 @@ import matplotlib.patches as mpatches
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 import psycopg
+
 from psycopg.rows import dict_row
+
+app = Flask(__name__)
 
 
 # Slack setup
