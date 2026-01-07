@@ -158,13 +158,11 @@ def get_notable_events(data):
     """Identify notable events for callouts"""
     events = []
     
-    # Filter out entries with no change data
     with_changes = [d for d in data if d['change'] != 0 or d['is_new']]
     
     if not with_changes:
         return events
     
-    # Biggest gainer (by percentage)
     gainers = [d for d in with_changes if d['change_pct'] > 0]
     if gainers:
         biggest_gainer = max(gainers, key=lambda x: x['change_pct'])
@@ -175,125 +173,116 @@ def get_notable_events(data):
             rank_note = " (up 1 spot)"
         events.append(f"🔥 BIGGEST GAINER: {biggest_gainer['name']} +{biggest_gainer['change_pct']:.1f}%{rank_note}")
     
-    # Biggest loser (by percentage)
     losers = [d for d in with_changes if d['change_pct'] < 0]
     if losers:
         biggest_loser = min(losers, key=lambda x: x['change_pct'])
         events.append(f"📉 BIGGEST LOSER: {biggest_loser['name']} {biggest_loser['change_pct']:.1f}%")
     
-    # New to top 10
     new_entries = [d for d in data if d['is_new']]
     for entry in new_entries:
         events.append(f"🆕 NEW TO TOP 10: {entry['name']}")
     
-    # Big rank jumps (2+ spots)
     big_movers = [d for d in data if d['rank_change'] >= 2]
     for mover in big_movers:
-        if mover['name'] != (gainers[0]['name'] if gainers else None):  # Don't duplicate biggest gainer
+        if not gainers or mover['name'] != gainers[0]['name']:
             events.append(f"⬆️ {mover['name']} jumped {mover['rank_change']} spots")
     
-    return events[:4]  # Max 4 events
+    return events[:4]
 
 def generate_chart(data, filename="btc_l2_tvl.png"):
-    """Generate chart matching the mockup design"""
+    """Generate ASCII-style chart as PNG image"""
     
-    # Set up the figure with dark background
-    fig, ax = plt.subplots(figsize=(12, 10))
-    fig.patch.set_facecolor('#2d2d2d')
-    ax.set_facecolor('#2d2d2d')
+    # Create figure with dark background
+    fig, ax = plt.subplots(figsize=(10, 12))
+    fig.patch.set_facecolor('#1a1a1a')
+    ax.set_facecolor('#1a1a1a')
     
-    # Prepare data (reversed for bottom-to-top display)
-    names = [d['name'] for d in reversed(data)]
-    tvls = [d['tvl'] / 1_000_000 for d in reversed(data)]
-    changes = list(reversed(data))
+    # Hide all axes
+    ax.axis('off')
     
-    # Create horizontal bars
-    y_pos = range(len(names))
-    bars = ax.barh(y_pos, tvls, color='#a0a0a0', height=0.6)
+    # Use a monospace font for ASCII look
+    mono_font = 'monospace'
     
-    # Remove axes
-    ax.set_yticks([])
-    ax.set_xticks([])
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['bottom'].set_visible(False)
-    ax.spines['left'].set_visible(False)
+    # Build the ASCII chart as text
+    lines = []
     
-    # Add labels for each bar
-    max_tvl = max(tvls) if tvls else 1
-    for i, (bar, chain_data) in enumerate(zip(bars, changes)):
-        rank = len(data) - i
-        name = chain_data['name']
-        tvl = chain_data['tvl'] / 1_000_000
-        change = chain_data['change'] / 1_000_000
-        change_pct = chain_data['change_pct']
-        rank_change = chain_data['rank_change']
+    # Header
+    lines.append("📊 BITCOIN L2 TVL RANKINGS")
+    lines.append(f"   {datetime.now().strftime('%B %d, %Y')}")
+    lines.append("")
+    
+    # Find max TVL for scaling bars
+    max_tvl = max(d['tvl'] for d in data) if data else 1
+    
+    # Generate bars
+    for d in data:
+        rank = d['rank']
+        name = d['name']
+        tvl = d['tvl'] / 1_000_000
+        change = d['change'] / 1_000_000
+        change_pct = d['change_pct']
+        rank_change = d['rank_change']
         
-        # Rank and name on left
-        ax.text(-max_tvl * 0.02, bar.get_y() + bar.get_height()/2,
-                f"{rank}. {name}", va='center', ha='right', color='white', fontsize=11, fontweight='bold')
+        # Create bar (scale to max 20 chars)
+        bar_length = int((d['tvl'] / max_tvl) * 20)
+        bar = '█' * bar_length
         
-        # TVL value after bar
-        ax.text(bar.get_width() + max_tvl * 0.02, bar.get_y() + bar.get_height()/2,
-                f"${tvl:,.1f}M", va='center', ha='left', color='white', fontsize=11)
-        
-        # Change values
+        # Format change string
         if change != 0:
-            change_str = f"+{change:,.1f}" if change > 0 else f"{change:,.1f}"
-            pct_str = f"(+{change_pct:.1f}%)" if change_pct > 0 else f"({change_pct:.1f}%)"
-            change_color = '#4ade80' if change > 0 else '#f87171'
-            
-            ax.text(bar.get_width() + max_tvl * 0.20, bar.get_y() + bar.get_height()/2,
-                    f"{change_str}  {pct_str}", va='center', ha='left', color=change_color, fontsize=10)
+            change_sign = '+' if change > 0 else ''
+            change_str = f"  {change_sign}{change:,.0f}  ({change_sign}{change_pct:.1f}%)"
+        else:
+            change_str = ""
         
-        # Rank change arrows
-        if rank_change != 0:
-            if rank_change >= 2:
-                arrow = "↑↑"
-            elif rank_change == 1:
-                arrow = "↑"
-            elif rank_change == -1:
-                arrow = "↓"
-            else:
-                arrow = "↓↓"
-            arrow_color = '#4ade80' if rank_change > 0 else '#f87171'
-            ax.text(bar.get_width() + max_tvl * 0.45, bar.get_y() + bar.get_height()/2,
-                    arrow, va='center', ha='left', color=arrow_color, fontsize=12, fontweight='bold')
+        # Format rank change arrows
+        if rank_change >= 2:
+            arrow = "  ↑↑"
+        elif rank_change == 1:
+            arrow = "  ↑"
+        elif rank_change == -1:
+            arrow = "  ↓"
+        elif rank_change <= -2:
+            arrow = "  ↓↓"
+        else:
+            arrow = ""
+        
+        # Build line
+        line = f"{rank:2}. {name:<12} {bar:<20}  ${tvl:,.1f}M{change_str}{arrow}"
+        lines.append(line)
     
-    # Title
-    ax.text(0.5, 1.08, "BITCOIN L2 TVL RANKINGS", transform=ax.transAxes,
-            fontsize=16, fontweight='bold', color='white', ha='center')
-    ax.text(0.5, 1.03, datetime.now().strftime("%B %d, %Y"), transform=ax.transAxes,
-            fontsize=12, color='#a0a0a0', ha='center')
-    
-    # Calculate totals
-    total_tvl = sum(d['tvl'] for d in data) / 1_000_000
-    total_change = sum(d['change'] for d in data) / 1_000_000
-    total_change_pct = (total_change / (total_tvl - total_change) * 100) if (total_tvl - total_change) > 0 else 0
-    
-    # Divider line
-    ax.axhline(y=-0.8, color='#505050', linewidth=1, xmin=0.1, xmax=0.9)
+    lines.append("")
+    lines.append("━" * 50)
     
     # Total line
-    change_sign = "+" if total_change >= 0 else ""
-    ax.text(0.5, -0.06, f"Total: ${total_tvl:,.0f}M  •  {change_sign}{total_change:,.0f} ({change_sign}{total_change_pct:.1f}%) vs yesterday",
-            transform=ax.transAxes, fontsize=11, color='white', ha='center')
+    total_tvl = sum(d['tvl'] for d in data) / 1_000_000
+    total_change = sum(d['change'] for d in data) / 1_000_000
+    if (total_tvl - total_change) > 0:
+        total_change_pct = (total_change / (total_tvl - total_change)) * 100
+    else:
+        total_change_pct = 0
+    change_sign = '+' if total_change >= 0 else ''
+    lines.append(f"Total: ${total_tvl:,.0f}M  ·  {change_sign}{total_change:,.0f} ({change_sign}{total_change_pct:.1f}%) vs yesterday")
+    lines.append("")
     
     # Notable events
     events = get_notable_events(data)
-    for i, event in enumerate(events):
-        ax.text(0.5, -0.12 - (i * 0.045), event, transform=ax.transAxes,
-                fontsize=10, color='#a0a0a0', ha='center')
+    if events:
+        for event in events:
+            lines.append(event)
+        lines.append("")
     
     # Footer
-    ax.text(0.5, -0.32, "Data: bitcoinlayers.org", transform=ax.transAxes,
-            fontsize=9, color='#606060', ha='center')
+    lines.append("Data: bitcoinlayers.org")
     
-    # Adjust layout
-    plt.xlim(-max_tvl * 0.35, max_tvl * 1.5)
-    plt.subplots_adjust(left=0.25, right=0.95, top=0.88, bottom=0.25)
+    # Join all lines
+    chart_text = '\n'.join(lines)
     
-    plt.savefig(filename, dpi=150, facecolor='#2d2d2d', edgecolor='none',
+    # Render text on image
+    ax.text(0.05, 0.95, chart_text, transform=ax.transAxes,
+            fontsize=11, fontfamily=mono_font, color='#e0e0e0',
+            verticalalignment='top', linespacing=1.5)
+    
+    plt.savefig(filename, dpi=150, facecolor='#1a1a1a', edgecolor='none',
                 bbox_inches='tight', pad_inches=0.5)
     plt.close()
     
